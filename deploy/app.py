@@ -5,7 +5,7 @@ from tensorflow.keras.models import load_model
 app = FastAPI()
 
 # Load model once at startup
-model = load_model("ecg_cnn_model.h5")
+model = load_model("deploy/ecg_cnn_model.h5")
 print("Model loaded successfully!")
 
 @app.get("/")
