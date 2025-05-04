@@ -3,4 +3,5 @@ services:
     name: ecg-cnn-deploy
     env: python
     buildCommand: pip install -r deploy/requirements.txt
-    startCommand: uvicorn deploy.app:app --host 0.0.0.0 --port 10000
+    startCommand: uvicorn deploy.app:app --host 0.0.0.0 --port $PORT
+
