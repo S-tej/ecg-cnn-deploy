@@ -1,6 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, File, UploadFile
+from pydantic import BaseModel
 import numpy as np
-import io
 from tensorflow.keras.models import load_model
 
 app = FastAPI(title="ECG Feature-Based Prediction API")
@@ -9,38 +9,45 @@ app = FastAPI(title="ECG Feature-Based Prediction API")
 model = load_model("deploy/ecg_cnn_model.h5")
 print("Model loaded successfully!")
 
+# Define the expected input features
+class ECGFeatures(BaseModel):
+    RR_interval: float
+    qrs_interval: float
+    pq_interval: float
+    st_interval: float
+    qt_interval: float
+
 # Label mapping
 label_mapping = {0: "Normal", 1: "Abnormal"}
 
 @app.post("/predict")
-async def predict_ecg(file: UploadFile = File(...)):
-    try:
-        # Check that the uploaded file is a .npy file
-        if not file.filename.endswith('.npy'):
-            raise HTTPException(status_code=400, detail="File must be a .npy NumPy file")
+async def predict_ecg(file: UploadFile = File(...)):  # Expecting a file
+    contents = await file.read()
 
-        # Read the .npy file into a NumPy array
-        contents = await file.read()
-        input_array = np.load(io.BytesIO(contents))
+    # Assume the file is in CSV format, load it as needed
+    # Example for a CSV file:
+    import io
+    import pandas as pd
+    df = pd.read_csv(io.BytesIO(contents))
 
-        # Ensure the input shape is correct
-        if input_array.ndim == 1:
-            input_array = input_array.reshape(1, -1)
-        elif input_array.ndim != 2 or input_array.shape[0] != 1:
-            raise HTTPException(status_code=400, detail="Input array must have shape (1, N)")
+    # You could then extract features from the file and make predictions
+    # Assuming the CSV has columns matching ECGFeatures:
+    input_array = np.array([
+        df['RR_interval'].values[0],  # Assuming a single row
+        df['qrs_interval'].values[0],
+        df['pq_interval'].values[0],
+        df['st_interval'].values[0],
+        df['qt_interval'].values[0]
+    ]).reshape(1, -1)
 
-        # Predict
-        prediction_prob = model.predict(input_array)[0][0]
+    # Predict
+    prediction_prob = model.predict(input_array)[0][0]
+    predicted_class = int(prediction_prob > 0.5)
+    result_label = label_mapping[predicted_class]
 
-        predicted_class = int(prediction_prob > 0.5)
-        result_label = label_mapping[predicted_class]
+    confidence = prediction_prob if predicted_class == 1 else 1 - prediction_prob
 
-        confidence = prediction_prob if predicted_class == 1 else 1 - prediction_prob
-
-        return {
-            "prediction": result_label,
-            "confidence": round(confidence * 100, 2)
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+    return {
+        "prediction": result_label,
+        "confidence": round(confidence * 100, 2)
+    }
