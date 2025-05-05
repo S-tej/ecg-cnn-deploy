@@ -1,42 +1,45 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
+from pydantic import BaseModel
 import numpy as np
 from tensorflow.keras.models import load_model
 
-app = FastAPI()
+app = FastAPI(title="ECG Feature-Based Prediction API")
 
-# Load model once at startup
+# Load the trained Keras model
 model = load_model("deploy/ecg_cnn_model.h5")
 print("Model loaded successfully!")
 
-@app.get("/")
-def root():
-    return {"message": "ECG CNN Model API is running!"}
+# Define the expected input features
+class ECGFeatures(BaseModel):
+    RR_interval: float
+    qrs_interval: float
+    pq_interval: float
+    st_interval: float
+    qt_interval: float
 
-@app.post("/evaluate")
-async def evaluate_uploaded_data(
-    x_file: UploadFile = File(...),
-    y_file: UploadFile = File(...)
-):
-    # Load uploaded numpy files
-    X_test = np.load(await x_file.read())
-    y_test = np.load(await y_file.read())
+# Label mapping
+label_mapping = {0: "Normal", 1: "Abnormal"}
 
-    # Evaluate model
-    test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
+@app.post("/predict")
+async def predict_ecg(features: ECGFeatures):
+    # Convert input features to NumPy array and reshape
+    input_array = np.array([
+        features.RR_interval,
+        features.qrs_interval,
+        features.pq_interval,
+        features.st_interval,
+        features.qt_interval
+    ]).reshape(1, -1)
 
     # Predict
-    predictions = model.predict(X_test)
-    predicted_classes = (predictions > 0.5).astype(int)
-    class_mapping = {0: "Normal", 1: "Abnormal"}
-    predicted_labels = [class_mapping[cls[0]] for cls in predicted_classes]
+    prediction_prob = model.predict(input_array)[0][0]
 
-    # Return first 10 predictions
-    results = [
-        {"sample": i + 1, "predicted_condition": label}
-        for i, label in enumerate(predicted_labels[:10])
-    ]
+    predicted_class = int(prediction_prob > 0.5)
+    result_label = label_mapping[predicted_class]
+
+    confidence = prediction_prob if predicted_class == 1 else 1 - prediction_prob
 
     return {
-        "test_accuracy": f"{test_acc:.4f}",
-        "samples": results
+        "prediction": result_label,
+        "confidence": round(confidence * 100, 2)
     }
