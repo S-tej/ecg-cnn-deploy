@@ -9,7 +9,7 @@ app = FastAPI(title="ECG Feature-Based Prediction API")
 model = load_model("deploy/ecg_cnn_model.h5")
 print("Model loaded successfully!")
 
-# Define the expected input features
+# Define expected input features
 class ECGFeatures(BaseModel):
     RR_interval: float
     qrs_interval: float
@@ -20,24 +20,41 @@ class ECGFeatures(BaseModel):
 # Label mapping
 label_mapping = {0: "Normal", 1: "Abnormal"}
 
+# Example: max values (adjust if you used scaling during training)
+# If you **did not scale** during training, REMOVE this scaling step.
+max_values = np.array([1.2, 0.12, 0.2, 0.15, 0.45])  # adjust if needed
+
 @app.post("/predict")
 async def predict_ecg(features: ECGFeatures):
-    # Convert input features to NumPy array and reshape
-    input_array = np.array([
-        features.RR_interval,
-        features.qrs_interval,
-        features.pq_interval,
-        features.st_interval,
-        features.qt_interval
-    ]).reshape(1, -1)
+    # Convert input to NumPy array
+    raw_input = np.array([
+        [features.RR_interval, 0.0],
+        [features.qrs_interval, 0.0],
+        [features.pq_interval, 0.0],
+        [features.st_interval, 0.0],
+        [features.qt_interval, 0.0]
+    ])
+    print("Raw input:", raw_input)
 
-    # Predict
-    prediction_prob = model.predict(input_array)[0][0]
+    # Optional: apply scaling if you used it during training
+    scaled_input = raw_input.copy()
+    scaled_input[:, 0] = scaled_input[:, 0] / max_values  # only first column
+    print("Scaled input:", scaled_input)
 
+    # Prepare input shape (1, 5, 2)
+    input_array = scaled_input.reshape(1, 5, 2)
+    print("Input array shape:", input_array.shape)
+
+    # Get model prediction
+    prediction_output = model.predict(input_array)
+    print("Raw model output:", prediction_output)
+
+    # Single sigmoid output
+    prediction_prob = float(prediction_output[0][0])
     predicted_class = int(prediction_prob > 0.5)
-    result_label = label_mapping[predicted_class]
-
     confidence = prediction_prob if predicted_class == 1 else 1 - prediction_prob
+
+    result_label = label_mapping.get(predicted_class, "Unknown")
 
     return {
         "prediction": result_label,
