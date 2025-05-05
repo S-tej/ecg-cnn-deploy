@@ -51,7 +51,7 @@ async def predict_ecg(features: ECGFeatures):
 
     # Single sigmoid output
     prediction_prob = float(prediction_output[0][0])
-    predicted_class = int(prediction_prob > 0.5)
+    predicted_class = int(prediction_prob < 0.5)
     confidence = prediction_prob if predicted_class == 1 else 1 - prediction_prob
 
     result_label = label_mapping.get(predicted_class, "Unknown")
