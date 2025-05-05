@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI
 from pydantic import BaseModel
 import numpy as np
 from tensorflow.keras.models import load_model
@@ -21,27 +21,19 @@ class ECGFeatures(BaseModel):
 label_mapping = {0: "Normal", 1: "Abnormal"}
 
 @app.post("/predict")
-async def predict_ecg(file: UploadFile = File(...)):  # Expecting a file
-    contents = await file.read()
-
-    # Assume the file is in CSV format, load it as needed
-    # Example for a CSV file:
-    import io
-    import pandas as pd
-    df = pd.read_csv(io.BytesIO(contents))
-
-    # You could then extract features from the file and make predictions
-    # Assuming the CSV has columns matching ECGFeatures:
+async def predict_ecg(features: ECGFeatures):
+    # Convert input features to NumPy array and reshape
     input_array = np.array([
-        df['RR_interval'].values[0],  # Assuming a single row
-        df['qrs_interval'].values[0],
-        df['pq_interval'].values[0],
-        df['st_interval'].values[0],
-        df['qt_interval'].values[0]
+        features.RR_interval,
+        features.qrs_interval,
+        features.pq_interval,
+        features.st_interval,
+        features.qt_interval
     ]).reshape(1, -1)
 
     # Predict
     prediction_prob = model.predict(input_array)[0][0]
+
     predicted_class = int(prediction_prob > 0.5)
     result_label = label_mapping[predicted_class]
 
