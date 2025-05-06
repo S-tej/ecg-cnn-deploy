@@ -18,7 +18,7 @@ class ECGFeatures(BaseModel):
     qt_interval: float
 
 # Label mapping
-label_mapping = {0: "Normal", 1: "Abnormal"}
+label_mapping = {1: "Normal", 0: "Abnormal"}
 
 # Example: max values (adjust if you used scaling during training)
 # If you **did not scale** during training, REMOVE this scaling step.
