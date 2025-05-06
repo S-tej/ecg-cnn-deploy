@@ -22,7 +22,7 @@ label_mapping = {0: "Normal", 1: "Abnormal"}
 
 # Example: max values (adjust if you used scaling during training)
 # If you **did not scale** during training, REMOVE this scaling step.
-max_values = np.array([1.2, 0.12, 0.2, 0.15, 0.45])  # adjust if needed
+max_values = np.array([1.0, 1.0, 1.0, 0.999999, 0.999999])  # adjust if needed
 
 @app.post("/predict")
 async def predict_ecg(features: ECGFeatures):
